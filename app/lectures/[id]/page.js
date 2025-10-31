@@ -12,6 +12,7 @@ export default function LecturePartsPage() {
   const [parts, setParts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [editingPart, setEditingPart] = useState(null); // 👈 new
 
   // Form fields
   const [imageFile, setImageFile] = useState(null);
@@ -73,7 +74,19 @@ export default function LecturePartsPage() {
     return () => document.removeEventListener("paste", handlePaste);
   }, []);
 
-  // Upload part
+  // Reset form
+  const resetForm = () => {
+    setImageFile(null);
+    setStructure("");
+    setFunctionText("");
+    setRelations("");
+    setBloodSupply("");
+    setNerveSupply("");
+    setBonyLandmarks("");
+    setEditingPart(null);
+  };
+
+  // Upload new part
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!imageFile || !structure.trim()) {
@@ -124,13 +137,76 @@ export default function LecturePartsPage() {
       alert("Error saving part: " + error.message);
     } else {
       setParts([data, ...parts]);
-      setImageFile(null);
-      setStructure("");
-      setFunctionText("");
-      setRelations("");
-      setBloodSupply("");
-      setNerveSupply("");
-      setBonyLandmarks("");
+      resetForm();
+    }
+
+    setUploading(false);
+  };
+
+  // Start editing
+  const handleEdit = (part) => {
+    setEditingPart(part);
+    setStructure(part.structure || "");
+    setFunctionText(part.function || "");
+    setRelations(part.relations || "");
+    setBloodSupply(part.blood_supply || "");
+    setNerveSupply(part.nerve_supply || "");
+    setBonyLandmarks(part.bony_landmarks || "");
+    setImageFile(null);
+  };
+
+  // Update part
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!editingPart) return;
+
+    setUploading(true);
+
+    let imageUrl = editingPart.image_url;
+
+    // if user uploaded a new image, upload and replace URL
+    if (imageFile) {
+      const fileExt = imageFile.name ? imageFile.name.split(".").pop() : "png";
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `parts/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("images")
+        .upload(filePath, imageFile);
+
+      if (uploadError) {
+        alert("Image upload failed: " + uploadError.message);
+        setUploading(false);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("images")
+        .getPublicUrl(filePath);
+
+      imageUrl = publicUrlData.publicUrl;
+    }
+
+    const { data, error } = await supabase
+      .from("parts")
+      .update({
+        image_url: imageUrl,
+        structure: structure.trim(),
+        function: functionText || null,
+        relations: relations || null,
+        blood_supply: bloodSupply || null,
+        nerve_supply: nerveSupply || null,
+        bony_landmarks: bonyLandmarks || null,
+      })
+      .eq("id", editingPart.id)
+      .select()
+      .single();
+
+    if (error) {
+      alert("Error updating part: " + error.message);
+    } else {
+      setParts(parts.map((p) => (p.id === editingPart.id ? data : p)));
+      resetForm();
     }
 
     setUploading(false);
@@ -154,12 +230,14 @@ export default function LecturePartsPage() {
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold mb-6">{lecture.name}</h1>
 
-        {/* Upload Form */}
+        {/* Upload / Edit Form */}
         <form
-          onSubmit={handleUpload}
+          onSubmit={editingPart ? handleUpdate : handleUpload}
           className="bg-white p-6 rounded-lg shadow mb-10"
         >
-          <h2 className="text-xl font-semibold mb-4">Add New Part</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            {editingPart ? "Edit Part" : "Add New Part"}
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             {/* Left: Image Preview + Drop Area */}
@@ -177,6 +255,12 @@ export default function LecturePartsPage() {
                 <img
                   src={URL.createObjectURL(imageFile)}
                   alt="preview"
+                  className="max-h-[400px] w-auto object-contain rounded-md"
+                />
+              ) : editingPart?.image_url ? (
+                <img
+                  src={editingPart.image_url}
+                  alt={editingPart.structure}
                   className="max-h-[400px] w-auto object-contain rounded-md"
                 />
               ) : (
@@ -249,13 +333,28 @@ export default function LecturePartsPage() {
                 className="w-full border border-gray-300 rounded-lg p-2"
               />
 
-              <button
-                type="submit"
-                disabled={uploading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-60"
-              >
-                {uploading ? "Uploading..." : "Upload Part"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-60"
+                >
+                  {uploading
+                    ? "Saving..."
+                    : editingPart
+                    ? "Update Part"
+                    : "Upload Part"}
+                </button>
+                {editingPart && (
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </form>
@@ -279,12 +378,20 @@ export default function LecturePartsPage() {
                     <strong>Function:</strong> {part.function}
                   </p>
                 )}
-                <button
-                  onClick={() => deletePart(part.id)}
-                  className="text-red-600 text-sm hover:underline mt-2"
-                >
-                  Delete
-                </button>
+                <div className="flex justify-between mt-2 text-sm">
+                  <button
+                    onClick={() => handleEdit(part)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deletePart(part.id)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
