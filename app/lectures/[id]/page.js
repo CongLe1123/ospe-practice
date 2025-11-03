@@ -164,7 +164,7 @@ export default function LecturePartsPage() {
 
     let imageUrl = editingPart.image_url;
 
-    // if user uploaded a new image, upload and replace URL
+    // If a new image was chosen, upload it
     if (imageFile) {
       const fileExt = imageFile.name ? imageFile.name.split(".").pop() : "png";
       const fileName = `${Date.now()}.${fileExt}`;
@@ -187,6 +187,7 @@ export default function LecturePartsPage() {
       imageUrl = publicUrlData.publicUrl;
     }
 
+    // ✅ Perform the update
     const { data, error } = await supabase
       .from("parts")
       .update({
@@ -199,14 +200,17 @@ export default function LecturePartsPage() {
         bony_landmarks: bonyLandmarks || null,
       })
       .eq("id", editingPart.id)
-      .select()
-      .single();
+      .select("*"); // 👈 no `.single()` — explicit select all
 
     if (error) {
+      console.error(error);
       alert("Error updating part: " + error.message);
-    } else {
-      setParts(parts.map((p) => (p.id === editingPart.id ? data : p)));
+    } else if (data && Array.isArray(data) && data.length > 0) {
+      const updatedPart = data[0];
+      setParts(parts.map((p) => (p.id === editingPart.id ? updatedPart : p)));
       resetForm();
+    } else {
+      alert("No data returned from Supabase after update.");
     }
 
     setUploading(false);

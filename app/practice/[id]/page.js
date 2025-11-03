@@ -11,6 +11,7 @@ export default function PracticeLecturePage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
+  const [isRandom, setIsRandom] = useState(false);
   const [answers, setAnswers] = useState({
     structure: "",
     function: "",
@@ -38,7 +39,7 @@ export default function PracticeLecturePage() {
         .from("parts")
         .select("*")
         .eq("lecture_id", id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       setParts(partsData || []);
       setCurrentIndex(0);
@@ -63,8 +64,13 @@ export default function PracticeLecturePage() {
 
   const handleNext = () => {
     if (parts.length === 0) return;
-    const next = Math.floor(Math.random() * parts.length);
-    setCurrentIndex(next);
+    let nextIndex;
+    if (isRandom) {
+      nextIndex = Math.floor(Math.random() * parts.length);
+    } else {
+      nextIndex = (currentIndex + 1) % parts.length;
+    }
+    setCurrentIndex(nextIndex);
     setShowResult(false);
     setResults({});
     setAnswers({
@@ -87,12 +93,29 @@ export default function PracticeLecturePage() {
       </div>
     );
 
+  // Only show fields that exist for current part
+  const visibleFields = Object.keys(answers).filter(
+    (key) => currentPart[key] && currentPart[key].trim() !== ""
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6 text-center">
-          Practice: {lecture ? lecture.name : "Unknown Lecture"}
-        </h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">
+            Practice: {lecture ? lecture.name : "Unknown Lecture"}
+          </h1>
+          <button
+            onClick={() => setIsRandom(!isRandom)}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              isRandom
+                ? "bg-purple-600 text-white hover:bg-purple-700"
+                : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+            }`}
+          >
+            Mode: {isRandom ? "Random" : "Normal"}
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* LEFT: Image */}
@@ -107,7 +130,7 @@ export default function PracticeLecturePage() {
           {/* RIGHT: Inputs */}
           <div className="bg-white rounded-lg shadow p-6 flex flex-col justify-between">
             <div className="space-y-3">
-              {Object.keys(answers).map((key) => (
+              {visibleFields.map((key) => (
                 <div key={key}>
                   <label className="block text-sm font-semibold mb-1 capitalize">
                     {key.replace("_", " ")}
