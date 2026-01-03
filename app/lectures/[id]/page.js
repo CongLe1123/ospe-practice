@@ -317,6 +317,17 @@ export default function LecturePartsPage() {
       return;
     }
 
+    // Check for duplicate
+    const isDuplicate = parts.some(
+      (p) => p.structure.toLowerCase() === joinedStructure.toLowerCase()
+    );
+    if (isDuplicate) {
+      alert(
+        `A structure with the name "${joinedStructure}" already exists in this lecture.`
+      );
+      return;
+    }
+
     setUploading(true);
 
     const fileExt = imageFile.name ? imageFile.name.split(".").pop() : "png";
@@ -390,6 +401,21 @@ export default function LecturePartsPage() {
       ) {
         return;
       }
+    }
+
+    // Check for duplicates in batch
+    const existingStructures = parts.map((p) => p.structure.toLowerCase());
+    const duplicates = batchItems
+      .map((item) => join(item.structure))
+      .filter((s) => existingStructures.includes(s.toLowerCase()));
+
+    if (duplicates.length > 0) {
+      alert(
+        `The following structures already exist: ${duplicates.join(
+          ", "
+        )}. Please remove or rename them before uploading.`
+      );
+      return;
     }
 
     setUploading(true);
