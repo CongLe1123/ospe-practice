@@ -37,6 +37,8 @@ export default function PracticeLecturePage() {
   const [answers, setAnswers] = useState({});
   const [results, setResults] = useState({});
 
+  const currentPart = parts[currentIndex];
+
   // Initialize answers whenever currentPart changes
   useEffect(() => {
     if (currentPart) {
@@ -85,8 +87,6 @@ export default function PracticeLecturePage() {
     };
     fetchData();
   }, [id]);
-
-  const currentPart = parts[currentIndex];
 
   const handleSubmit = (e) => {
     e?.preventDefault();
@@ -212,9 +212,25 @@ export default function PracticeLecturePage() {
                 >
                   Practice Session
                 </Badge>
-                <span className="text-muted-foreground text-sm font-medium">
-                  Part {currentIndex + 1} of {parts.length}
-                </span>
+                <div className="flex items-center text-muted-foreground text-sm font-medium">
+                  Part
+                  <select
+                    value={currentIndex}
+                    onChange={(e) => {
+                      setCurrentIndex(Number(e.target.value));
+                      setShowResult(false);
+                      setResults({});
+                    }}
+                    className="mx-1.5 bg-muted/50 hover:bg-muted px-2 py-0.5 rounded-md border-none focus:ring-1 focus:ring-primary cursor-pointer transition-colors"
+                  >
+                    {parts.map((_, idx) => (
+                      <option key={idx} value={idx}>
+                        {idx + 1}
+                      </option>
+                    ))}
+                  </select>
+                  of {parts.length}
+                </div>
               </div>
             </div>
           </div>
@@ -247,19 +263,19 @@ export default function PracticeLecturePage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
           {/* LEFT: Image */}
           <div className="lg:col-span-7 xl:col-span-8 flex flex-col gap-4">
-            <Card className="overflow-hidden border-none shadow-2xl rounded-3xl bg-white p-4 group">
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-muted flex items-center justify-center">
+            <Card className="overflow-hidden border-none shadow-2xl rounded-3xl bg-white p-4 group flex flex-col h-full">
+              <div className="relative flex-1 rounded-2xl overflow-hidden bg-muted flex items-center justify-center min-h-[400px]">
                 <img
                   src={currentPart.image_url}
                   alt="anatomical structure"
-                  className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-700"
+                  className="absolute inset-0 w-full h-full object-contain object-center group-hover:scale-[1.02] transition-transform duration-700 p-4"
                 />
-                <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/20 to-transparent"></div>
+                <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
               </div>
-              <div className="mt-4 px-2">
+              <div className="mt-4 px-2 flex-shrink-0">
                 <Progress value={progress} className="h-2 rounded-full" />
                 <div className="flex justify-between mt-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   <span>Progress</span>
@@ -270,7 +286,7 @@ export default function PracticeLecturePage() {
           </div>
 
           {/* RIGHT: Inputs */}
-          <Card className="lg:col-span-5 xl:col-span-4 border-none shadow-xl rounded-3xl overflow-hidden glass-card flex flex-col min-h-[500px]">
+          <Card className="lg:col-span-5 xl:col-span-4 border-none shadow-xl rounded-3xl overflow-hidden glass-card flex flex-col h-[650px]">
             <CardHeader className="bg-primary/5 border-b border-primary/10">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-primary rounded-lg text-white">
@@ -287,61 +303,74 @@ export default function PracticeLecturePage() {
                     <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest block ml-1">
                       {key.replace("_", " ")}
                     </label>
-                    <div className="space-y-3">
-                      {answers[key]?.map((value, idx) => {
-                        const correctValues = (currentPart[key] || "")
-                          .split("|")
-                          .map((v) => v.trim().toLowerCase())
-                          .filter(Boolean);
-                        const isThisCorrect = correctValues.includes(
-                          value.trim().toLowerCase()
-                        );
+                    {(() => {
+                      const rawCorrectParts = (currentPart[key] || "")
+                        .split("|")
+                        .map((v) => v.trim())
+                        .filter(Boolean);
+                      const correctValuesLookup = rawCorrectParts.map((v) =>
+                        v.toLowerCase()
+                      );
 
-                        return (
-                          <div key={idx} className="relative">
-                            <Input
-                              type="text"
-                              value={value}
-                              onChange={(e) => {
-                                const newValues = [...answers[key]];
-                                newValues[idx] = e.target.value;
-                                setAnswers({ ...answers, [key]: newValues });
-                              }}
-                              onPaste={(e) => handlePaste(key, idx, e)}
-                              className={`h-12 rounded-xl text-base transition-all ${
-                                showResult
-                                  ? isThisCorrect
-                                    ? "border-green-500 bg-green-50 ring-green-100 pr-10"
-                                    : "border-red-500 bg-red-50 ring-red-100 pr-10"
-                                  : "border-muted-foreground/20 focus-visible:ring-primary shadow-inner"
-                              }`}
-                              placeholder={`Part ${idx + 1}...`}
-                              disabled={showResult}
-                              autoFocus={key === "structure" && idx === 0}
-                            />
-                            {showResult && (
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                {isThisCorrect ? (
-                                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                ) : (
-                                  <XCircle className="w-5 h-5 text-red-600" />
+                      return (
+                        <div className="space-y-3">
+                          {answers[key]?.map((value, idx) => {
+                            const isThisCorrect = correctValuesLookup.includes(
+                              value.trim().toLowerCase()
+                            );
+
+                            return (
+                              <div key={idx} className="space-y-1">
+                                <div className="relative">
+                                  <Input
+                                    type="text"
+                                    value={value}
+                                    onChange={(e) => {
+                                      const newValues = [...answers[key]];
+                                      newValues[idx] = e.target.value;
+                                      setAnswers({
+                                        ...answers,
+                                        [key]: newValues,
+                                      });
+                                    }}
+                                    onPaste={(e) => handlePaste(key, idx, e)}
+                                    className={`h-12 rounded-xl text-base transition-all ${
+                                      showResult
+                                        ? isThisCorrect
+                                          ? "border-green-500 bg-green-50 ring-green-100 pr-10"
+                                          : "border-red-500 bg-red-50 ring-red-100 pr-10"
+                                        : "border-muted-foreground/20 focus-visible:ring-primary shadow-inner"
+                                    }`}
+                                    placeholder={`Part ${idx + 1}...`}
+                                    disabled={showResult}
+                                    autoFocus={key === "structure" && idx === 0}
+                                  />
+                                  {showResult && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                      {isThisCorrect ? (
+                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                      ) : (
+                                        <XCircle className="w-5 h-5 text-red-600" />
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                {showResult && !isThisCorrect && (
+                                  <div className="animate-in fade-in slide-in-from-top-1 duration-300">
+                                    <Badge
+                                      variant="outline"
+                                      className="border-red-200 text-red-600 bg-white shadow-sm px-3 py-2 font-medium text-xs whitespace-normal break-words text-left w-full h-auto block rounded-xl"
+                                    >
+                                      {rawCorrectParts[idx]}
+                                    </Badge>
+                                  </div>
                                 )}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {showResult && !results[key] && (
-                      <div className="animate-in fade-in slide-in-from-top-1 duration-300">
-                        <Badge
-                          variant="outline"
-                          className="border-red-200 text-red-600 bg-white shadow-sm mt-1 px-3 py-1 font-medium text-sm"
-                        >
-                          {currentPart[key].split("|").join(", ")}
-                        </Badge>
-                      </div>
-                    )}
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
 
