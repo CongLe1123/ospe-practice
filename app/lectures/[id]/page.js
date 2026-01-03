@@ -47,6 +47,23 @@ const MultiInput = ({
     onChange(newValues);
   };
 
+  const handlePaste = (index, e) => {
+    const pasteData = e.clipboardData.getData("text");
+    if (pasteData.includes("\n")) {
+      e.preventDefault();
+      const lines = pasteData
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length > 0) {
+        const newValues = [...values];
+        // Insert pasted lines at the current index
+        newValues.splice(index, 1, ...lines);
+        onChange(newValues);
+      }
+    }
+  };
+
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between">
@@ -70,6 +87,7 @@ const MultiInput = ({
             <Input
               value={v}
               onChange={(e) => updateField(i, e.target.value)}
+              onPaste={(e) => handlePaste(i, e)}
               placeholder={placeholder}
               required={required && i === 0}
               className="h-10 rounded-xl"

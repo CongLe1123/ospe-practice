@@ -113,6 +113,25 @@ export default function PracticeLecturePage() {
     setShowResult(true);
   };
 
+  const handlePaste = (key, index, e) => {
+    const pasteData = e.clipboardData.getData("text");
+    if (pasteData.includes("\n")) {
+      e.preventDefault();
+      const lines = pasteData
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length > 0) {
+        const newValues = [...(answers[key] || [])];
+        // Distribute lines into existing input slots
+        for (let i = 0; i < lines.length && index + i < newValues.length; i++) {
+          newValues[index + i] = lines[i];
+        }
+        setAnswers({ ...answers, [key]: newValues });
+      }
+    }
+  };
+
   const handleNext = () => {
     if (parts.length === 0) return;
     let nextIndex;
@@ -288,6 +307,7 @@ export default function PracticeLecturePage() {
                                 newValues[idx] = e.target.value;
                                 setAnswers({ ...answers, [key]: newValues });
                               }}
+                              onPaste={(e) => handlePaste(key, idx, e)}
                               className={`h-12 rounded-xl text-base transition-all ${
                                 showResult
                                   ? isThisCorrect
