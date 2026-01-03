@@ -29,6 +29,69 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+const MultiInput = ({
+  label,
+  values,
+  onChange,
+  placeholder,
+  required = false,
+}) => {
+  const addField = () => onChange([...values, ""]);
+  const removeField = (index) => {
+    const newValues = values.filter((_, i) => i !== index);
+    onChange(newValues.length > 0 ? newValues : [""]);
+  };
+  const updateField = (index, val) => {
+    const newValues = [...values];
+    newValues[index] = val;
+    onChange(newValues);
+  };
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between">
+        <Label>
+          {label}
+          {required && " *"}
+        </Label>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={addField}
+          className="h-6 px-2 text-xs text-primary hover:text-primary hover:bg-primary/10"
+        >
+          <Plus className="w-3 h-3 mr-1" /> Add
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {values.map((v, i) => (
+          <div key={i} className="flex gap-2">
+            <Input
+              value={v}
+              onChange={(e) => updateField(i, e.target.value)}
+              placeholder={placeholder}
+              required={required && i === 0}
+              className="h-10 rounded-xl"
+            />
+            {values.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removeField(i)}
+                className="h-10 w-10 text-muted-foreground hover:text-destructive"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function LecturePartsPage() {
   const params = useParams();
   const router = useRouter();
@@ -42,12 +105,12 @@ export default function LecturePartsPage() {
 
   // Single form fields
   const [imageFile, setImageFile] = useState(null);
-  const [structure, setStructure] = useState("");
-  const [functionText, setFunctionText] = useState("");
-  const [relations, setRelations] = useState("");
-  const [bloodSupply, setBloodSupply] = useState("");
-  const [nerveSupply, setNerveSupply] = useState("");
-  const [bonyLandmarks, setBonyLandmarks] = useState("");
+  const [structure, setStructure] = useState([""]);
+  const [functionText, setFunctionText] = useState([""]);
+  const [relations, setRelations] = useState([""]);
+  const [bloodSupply, setBloodSupply] = useState([""]);
+  const [nerveSupply, setNerveSupply] = useState([""]);
+  const [bonyLandmarks, setBonyLandmarks] = useState([""]);
 
   // Batch import state
   const [batchItems, setBatchItems] = useState([]);
@@ -55,6 +118,15 @@ export default function LecturePartsPage() {
 
   const fileInputRef = useRef(null);
   const batchFileInputRef = useRef(null);
+
+  // Helper to join array to string
+  const join = (arr) =>
+    (arr || [])
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join("|");
+  // Helper to split string to array
+  const split = (str) => (str ? str.split("|") : [""]);
 
   // Fetch lecture and parts
   useEffect(() => {
@@ -121,12 +193,12 @@ export default function LecturePartsPage() {
   // Reset form
   const resetForm = () => {
     setImageFile(null);
-    setStructure("");
-    setFunctionText("");
-    setRelations("");
-    setBloodSupply("");
-    setNerveSupply("");
-    setBonyLandmarks("");
+    setStructure([""]);
+    setFunctionText([""]);
+    setRelations([""]);
+    setBloodSupply([""]);
+    setNerveSupply([""]);
+    setBonyLandmarks([""]);
     setEditingPart(null);
   };
 
@@ -136,13 +208,13 @@ export default function LecturePartsPage() {
       id: Math.random().toString(36).substr(2, 9),
       file,
       structure: file.name
-        ? file.name.split(".").slice(0, -1).join(".")
-        : "New Part",
-      functionText: "",
-      relations: "",
-      bloodSupply: "",
-      nerveSupply: "",
-      bonyLandmarks: "",
+        ? [file.name.split(".").slice(0, -1).join(".")]
+        : ["New Part"],
+      functionText: [""],
+      relations: [""],
+      bloodSupply: [""],
+      nerveSupply: [""],
+      bonyLandmarks: [""],
       previewUrl: URL.createObjectURL(file),
       imageMatched: true,
     }));
@@ -188,12 +260,12 @@ export default function LecturePartsPage() {
             id: matchingItem?.id || Math.random().toString(36).substr(2, 9),
             file: matchingItem?.file || null,
             previewUrl: matchingItem?.previewUrl || null,
-            structure: row.structure || row.name || "New Part",
-            functionText: row.function || row.function_text || "",
-            relations: row.relations || "",
-            bloodSupply: row.blood_supply || row.bloodsupply || "",
-            nerveSupply: row.nerve_supply || row.nervesupply || "",
-            bonyLandmarks: row.bony_landmarks || row.bonylandmarks || "",
+            structure: split(row.structure || row.name || "New Part"),
+            functionText: split(row.function || row.function_text || ""),
+            relations: split(row.relations || ""),
+            bloodSupply: split(row.blood_supply || row.bloodsupply || ""),
+            nerveSupply: split(row.nerve_supply || row.nervesupply || ""),
+            bonyLandmarks: split(row.bony_landmarks || row.bonylandmarks || ""),
             imageMatched: !!matchingItem,
           };
         });
@@ -221,7 +293,8 @@ export default function LecturePartsPage() {
   // Upload new part
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!imageFile || !structure.trim()) {
+    const joinedStructure = join(structure);
+    if (!imageFile || !joinedStructure) {
       alert("Image and structure name are required.");
       return;
     }
@@ -254,12 +327,12 @@ export default function LecturePartsPage() {
         {
           lecture_id: id,
           image_url: imageUrl,
-          structure: structure.trim(),
-          function: functionText || null,
-          relations: relations || null,
-          blood_supply: bloodSupply || null,
-          nerve_supply: nerveSupply || null,
-          bony_landmarks: bonyLandmarks || null,
+          structure: joinedStructure,
+          function: join(functionText) || null,
+          relations: join(relations) || null,
+          blood_supply: join(bloodSupply) || null,
+          nerve_supply: join(nerveSupply) || null,
+          bony_landmarks: join(bonyLandmarks) || null,
         },
       ])
       .select()
@@ -280,7 +353,7 @@ export default function LecturePartsPage() {
     if (batchItems.length === 0) return;
 
     // Validate
-    if (batchItems.some((item) => !item.structure.trim())) {
+    if (batchItems.some((item) => !join(item.structure))) {
       alert("All parts must have a structure name.");
       return;
     }
@@ -332,12 +405,12 @@ export default function LecturePartsPage() {
             {
               lecture_id: id,
               image_url: imageUrl,
-              structure: item.structure.trim(),
-              function: item.functionText || null,
-              relations: item.relations || null,
-              blood_supply: item.bloodSupply || null,
-              nerve_supply: item.nerveSupply || null,
-              bony_landmarks: item.bonyLandmarks || null,
+              structure: join(item.structure),
+              function: join(item.functionText) || null,
+              relations: join(item.relations) || null,
+              blood_supply: join(item.bloodSupply) || null,
+              nerve_supply: join(item.nerveSupply) || null,
+              bony_landmarks: join(item.bonyLandmarks) || null,
             },
           ])
           .select()
@@ -363,12 +436,12 @@ export default function LecturePartsPage() {
   const handleEdit = (part) => {
     setIsBatchMode(false);
     setEditingPart(part);
-    setStructure(part.structure || "");
-    setFunctionText(part.function || "");
-    setRelations(part.relations || "");
-    setBloodSupply(part.blood_supply || "");
-    setNerveSupply(part.nerve_supply || "");
-    setBonyLandmarks(part.bony_landmarks || "");
+    setStructure(split(part.structure));
+    setFunctionText(split(part.function));
+    setRelations(split(part.relations));
+    setBloodSupply(split(part.blood_supply));
+    setNerveSupply(split(part.nerve_supply));
+    setBonyLandmarks(split(part.bony_landmarks));
     setImageFile(null);
   };
 
@@ -423,12 +496,12 @@ export default function LecturePartsPage() {
       .from("parts")
       .update({
         image_url: imageUrl,
-        structure: structure.trim(),
-        function: functionText || null,
-        relations: relations || null,
-        blood_supply: bloodSupply || null,
-        nerve_supply: nerveSupply || null,
-        bony_landmarks: bonyLandmarks || null,
+        structure: join(structure),
+        function: join(functionText) || null,
+        relations: join(relations) || null,
+        blood_supply: join(bloodSupply) || null,
+        nerve_supply: join(nerveSupply) || null,
+        bony_landmarks: join(bonyLandmarks) || null,
       })
       .eq("id", editingPart.id)
       .select("*");
@@ -607,73 +680,49 @@ export default function LecturePartsPage() {
                 {/* Right: Form Fields */}
                 <div className="space-y-5">
                   <div className="grid gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="structure">Structure Name *</Label>
-                      <Input
-                        id="structure"
-                        placeholder="e.g. Left Ventricle"
-                        value={structure}
-                        onChange={(e) => setStructure(e.target.value)}
-                        required
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
+                    <MultiInput
+                      label="Structure Name"
+                      values={structure}
+                      onChange={setStructure}
+                      placeholder="e.g. Left Ventricle"
+                      required
+                    />
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="function">Function</Label>
-                      <Input
-                        id="function"
-                        placeholder="What is its primary role?"
-                        value={functionText}
-                        onChange={(e) => setFunctionText(e.target.value)}
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
+                    <MultiInput
+                      label="Function"
+                      values={functionText}
+                      onChange={setFunctionText}
+                      placeholder="What is its primary role?"
+                    />
 
-                    <div className="grid gap-2">
-                      <Label htmlFor="relations">Relations</Label>
-                      <Input
-                        id="relations"
-                        placeholder="Neighboring structures..."
-                        value={relations}
-                        onChange={(e) => setRelations(e.target.value)}
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
+                    <MultiInput
+                      label="Relations"
+                      values={relations}
+                      onChange={setRelations}
+                      placeholder="Neighboring structures..."
+                    />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="blood">Blood Supply</Label>
-                        <Input
-                          id="blood"
-                          placeholder="Arteries/Veins"
-                          value={bloodSupply}
-                          onChange={(e) => setBloodSupply(e.target.value)}
-                          className="h-11 rounded-xl"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="nerve">Nerve Supply</Label>
-                        <Input
-                          id="nerve"
-                          placeholder="Innervation..."
-                          value={nerveSupply}
-                          onChange={(e) => setNerveSupply(e.target.value)}
-                          className="h-11 rounded-xl"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="landmarks">Bony Landmarks</Label>
-                      <Input
-                        id="landmarks"
-                        placeholder="Associated bone features..."
-                        value={bonyLandmarks}
-                        onChange={(e) => setBonyLandmarks(e.target.value)}
-                        className="h-11 rounded-xl"
+                      <MultiInput
+                        label="Blood Supply"
+                        values={bloodSupply}
+                        onChange={setBloodSupply}
+                        placeholder="Arteries/Veins"
+                      />
+                      <MultiInput
+                        label="Nerve Supply"
+                        values={nerveSupply}
+                        onChange={setNerveSupply}
+                        placeholder="Innervation..."
                       />
                     </div>
+
+                    <MultiInput
+                      label="Bony Landmarks"
+                      values={bonyLandmarks}
+                      onChange={setBonyLandmarks}
+                      placeholder="Associated bone features..."
+                    />
                   </div>
 
                   <div className="flex gap-3 pt-4">
@@ -873,88 +922,76 @@ export default function LecturePartsPage() {
 
                           <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div className="col-span-full">
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">
-                                Structure *
-                              </Label>
-                              <Input
-                                value={item.structure}
-                                onChange={(e) => {
+                              <MultiInput
+                                label="Structure"
+                                values={item.structure}
+                                onChange={(val) => {
                                   const newBatch = [...batchItems];
-                                  newBatch[index].structure = e.target.value;
+                                  newBatch[index].structure = val;
                                   setBatchItems(newBatch);
                                 }}
-                                className="h-9 border-muted-foreground/20 focus-visible:ring-primary"
+                                placeholder="Structure..."
+                                required
                               />
                             </div>
                             <div>
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">
-                                Function
-                              </Label>
-                              <Input
-                                value={item.functionText}
-                                onChange={(e) => {
+                              <MultiInput
+                                label="Function"
+                                values={item.functionText}
+                                onChange={(val) => {
                                   const newBatch = [...batchItems];
-                                  newBatch[index].functionText = e.target.value;
+                                  newBatch[index].functionText = val;
                                   setBatchItems(newBatch);
                                 }}
-                                className="h-9 border-muted-foreground/20"
+                                placeholder="Function..."
                               />
                             </div>
                             <div>
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">
-                                Relations
-                              </Label>
-                              <Input
-                                value={item.relations}
-                                onChange={(e) => {
+                              <MultiInput
+                                label="Relations"
+                                values={item.relations}
+                                onChange={(val) => {
                                   const newBatch = [...batchItems];
-                                  newBatch[index].relations = e.target.value;
+                                  newBatch[index].relations = val;
                                   setBatchItems(newBatch);
                                 }}
-                                className="h-9 border-muted-foreground/20"
+                                placeholder="Relations..."
                               />
                             </div>
                             <div>
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">
-                                Blood
-                              </Label>
-                              <Input
-                                value={item.bloodSupply}
-                                onChange={(e) => {
+                              <MultiInput
+                                label="Blood"
+                                values={item.bloodSupply}
+                                onChange={(val) => {
                                   const newBatch = [...batchItems];
-                                  newBatch[index].bloodSupply = e.target.value;
+                                  newBatch[index].bloodSupply = val;
                                   setBatchItems(newBatch);
                                 }}
-                                className="h-9 border-muted-foreground/20"
+                                placeholder="Blood..."
                               />
                             </div>
                             <div>
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">
-                                Nerve
-                              </Label>
-                              <Input
-                                value={item.nerveSupply}
-                                onChange={(e) => {
+                              <MultiInput
+                                label="Nerve"
+                                values={item.nerveSupply}
+                                onChange={(val) => {
                                   const newBatch = [...batchItems];
-                                  newBatch[index].nerveSupply = e.target.value;
+                                  newBatch[index].nerveSupply = val;
                                   setBatchItems(newBatch);
                                 }}
-                                className="h-9 border-muted-foreground/20"
+                                placeholder="Nerve..."
                               />
                             </div>
                             <div>
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">
-                                Landmarks
-                              </Label>
-                              <Input
-                                value={item.bonyLandmarks}
-                                onChange={(e) => {
+                              <MultiInput
+                                label="Landmarks"
+                                values={item.bonyLandmarks}
+                                onChange={(val) => {
                                   const newBatch = [...batchItems];
-                                  newBatch[index].bonyLandmarks =
-                                    e.target.value;
+                                  newBatch[index].bonyLandmarks = val;
                                   setBatchItems(newBatch);
                                 }}
-                                className="h-9 border-muted-foreground/20"
+                                placeholder="Landmarks..."
                               />
                             </div>
                           </div>
@@ -1033,11 +1070,11 @@ export default function LecturePartsPage() {
                       Structure
                     </Badge>
                     <h3 className="font-bold text-xl text-foreground mb-2 group-hover:text-primary transition-colors">
-                      {part.structure}
+                      {part.structure.split("|").join(", ")}
                     </h3>
                     {part.function && (
                       <p className="text-sm text-muted-foreground line-clamp-2 italic leading-relaxed">
-                        "{part.function}"
+                        "{part.function.split("|").join(", ")}"
                       </p>
                     )}
 

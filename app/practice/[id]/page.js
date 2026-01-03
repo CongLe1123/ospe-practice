@@ -34,15 +34,31 @@ export default function PracticeLecturePage() {
   const [loading, setLoading] = useState(true);
   const [showResult, setShowResult] = useState(false);
   const [isRandom, setIsRandom] = useState(false);
-  const [answers, setAnswers] = useState({
-    structure: "",
-    function: "",
-    relations: "",
-    blood_supply: "",
-    nerve_supply: "",
-    bony_landmarks: "",
-  });
+  const [answers, setAnswers] = useState({});
   const [results, setResults] = useState({});
+
+  // Initialize answers whenever currentPart changes
+  useEffect(() => {
+    if (currentPart) {
+      const initialAnswers = {};
+      [
+        "structure",
+        "function",
+        "relations",
+        "blood_supply",
+        "nerve_supply",
+        "bony_landmarks",
+      ].forEach((key) => {
+        const count = (currentPart[key] || "")
+          .split("|")
+          .filter(Boolean).length;
+        initialAnswers[key] = Array(count).fill("");
+      });
+      setAnswers(initialAnswers);
+      setResults({});
+      setShowResult(false);
+    }
+  }, [currentPart]);
 
   // Load lecture and parts
   useEffect(() => {
@@ -77,9 +93,21 @@ export default function PracticeLecturePage() {
     if (!currentPart) return;
     const newResults = {};
     Object.keys(answers).forEach((key) => {
-      const correct = (currentPart[key] || "").trim().toLowerCase();
-      const user = (answers[key] || "").trim().toLowerCase();
-      newResults[key] = user === correct && correct !== "";
+      const correctValues = (currentPart[key] || "")
+        .split("|")
+        .map((v) => v.trim().toLowerCase())
+        .filter(Boolean);
+      const userValues = (answers[key] || []).map((v) =>
+        v.trim().toLowerCase()
+      );
+
+      // Check if the set of user values matches the set of correct values
+      const allCorrect =
+        correctValues.length === userValues.length &&
+        correctValues.every((val) => userValues.includes(val)) &&
+        userValues.every((val) => correctValues.includes(val));
+
+      newResults[key] = allCorrect;
     });
     setResults(newResults);
     setShowResult(true);
@@ -99,16 +127,7 @@ export default function PracticeLecturePage() {
     }
 
     setCurrentIndex(nextIndex);
-    setShowResult(false);
-    setResults({});
-    setAnswers({
-      structure: "",
-      function: "",
-      relations: "",
-      blood_supply: "",
-      nerve_supply: "",
-      bony_landmarks: "",
-    });
+    // Answers will be reset by the useEffect watching currentPart
   };
 
   if (loading)
@@ -144,7 +163,7 @@ export default function PracticeLecturePage() {
     );
 
   const visibleFields = Object.keys(answers).filter(
-    (key) => currentPart[key] && currentPart[key].trim() !== ""
+    (key) => (currentPart?.[key] || "").trim() !== ""
   );
 
   const progress = ((currentIndex + 1) / parts.length) * 100;
@@ -249,33 +268,49 @@ export default function PracticeLecturePage() {
                     <label className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest block ml-1">
                       {key.replace("_", " ")}
                     </label>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        value={answers[key]}
-                        onChange={(e) =>
-                          setAnswers({ ...answers, [key]: e.target.value })
-                        }
-                        className={`h-12 rounded-xl text-base transition-all ${
-                          showResult
-                            ? results[key]
-                              ? "border-green-500 bg-green-50 ring-green-100 pr-10"
-                              : "border-red-500 bg-red-50 ring-red-100 pr-10"
-                            : "border-muted-foreground/20 focus-visible:ring-primary shadow-inner"
-                        }`}
-                        placeholder={`Enter name...`}
-                        disabled={showResult}
-                        autoFocus={key === "structure"}
-                      />
-                      {showResult && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {results[key] ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-red-600" />
-                          )}
-                        </div>
-                      )}
+                    <div className="space-y-3">
+                      {answers[key]?.map((value, idx) => {
+                        const correctValues = (currentPart[key] || "")
+                          .split("|")
+                          .map((v) => v.trim().toLowerCase())
+                          .filter(Boolean);
+                        const isThisCorrect = correctValues.includes(
+                          value.trim().toLowerCase()
+                        );
+
+                        return (
+                          <div key={idx} className="relative">
+                            <Input
+                              type="text"
+                              value={value}
+                              onChange={(e) => {
+                                const newValues = [...answers[key]];
+                                newValues[idx] = e.target.value;
+                                setAnswers({ ...answers, [key]: newValues });
+                              }}
+                              className={`h-12 rounded-xl text-base transition-all ${
+                                showResult
+                                  ? isThisCorrect
+                                    ? "border-green-500 bg-green-50 ring-green-100 pr-10"
+                                    : "border-red-500 bg-red-50 ring-red-100 pr-10"
+                                  : "border-muted-foreground/20 focus-visible:ring-primary shadow-inner"
+                              }`}
+                              placeholder={`Part ${idx + 1}...`}
+                              disabled={showResult}
+                              autoFocus={key === "structure" && idx === 0}
+                            />
+                            {showResult && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                {isThisCorrect ? (
+                                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                ) : (
+                                  <XCircle className="w-5 h-5 text-red-600" />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                     {showResult && !results[key] && (
                       <div className="animate-in fade-in slide-in-from-top-1 duration-300">
@@ -283,7 +318,7 @@ export default function PracticeLecturePage() {
                           variant="outline"
                           className="border-red-200 text-red-600 bg-white shadow-sm mt-1 px-3 py-1 font-medium text-sm"
                         >
-                          {currentPart[key]}
+                          {currentPart[key].split("|").join(", ")}
                         </Badge>
                       </div>
                     )}
