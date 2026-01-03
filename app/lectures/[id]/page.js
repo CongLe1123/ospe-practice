@@ -978,7 +978,7 @@ export default function LecturePartsPage() {
                             </div>
                             <div>
                               <MultiInput
-                                label="Blood"
+                                label="Blood Supply"
                                 values={item.bloodSupply}
                                 onChange={(val) => {
                                   const newBatch = [...batchItems];
